@@ -113,13 +113,6 @@ st.markdown('<div class="subjudul">Sistem Rekomendasi Kata Pengganti untuk Mendu
 
 # ── Sidebar ──────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### ⚙️ Pengaturan")
-    api_key = st.text_input(
-        "OpenAI API Key",
-        type="password",
-        placeholder="sk-..."
-    )
-    st.caption("🔒 API key tidak disimpan dan hanya digunakan selama sesi ini.")
     st.divider()
     st.markdown("### 📖 Tentang SimKata")
     st.markdown("""
@@ -131,6 +124,13 @@ with st.sidebar:
     """)
     st.divider()
     st.caption("Aisyah Muthmainnah · 1227050012 · Teknik Informatika · 2026")
+
+# ── Ambil API key dari Streamlit Secrets ─────────────────
+try:
+    api_key = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    st.error("⚠️ API key belum dikonfigurasi. Hubungi administrator.")
+    st.stop()
 
 # ── Konstanta fitur ──────────────────────────────────────
 HURUF_BINGUNG     = set('bdpq')
@@ -251,9 +251,7 @@ with tab1:
     cari = st.button("🔍  Cari Rekomendasi", key="btn_cari")
 
     if cari:
-        if not api_key:
-            st.error("⚠️ Masukkan API key OpenAI di sidebar terlebih dahulu!")
-        elif not kata_input.strip():
+        if not kata_input.strip():
             st.warning("Masukkan kata terlebih dahulu.")
         else:
             kata_bersih = kata_input.strip().lower()
@@ -314,9 +312,7 @@ with tab2:
     sederhanakan = st.button("✨  Sederhanakan Teks", key="btn_teks")
 
     if sederhanakan:
-        if not api_key:
-            st.error("⚠️ Masukkan API key OpenAI di sidebar terlebih dahulu!")
-        elif not teks_input.strip():
+        if not teks_input.strip():
             st.warning("Masukkan teks terlebih dahulu.")
         else:
             client_ai          = OpenAI(api_key=api_key)

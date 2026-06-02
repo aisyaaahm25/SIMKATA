@@ -226,9 +226,9 @@ st.markdown("""
     <div class="deco deco-1">📚</div>
     <div class="deco deco-2">✨</div>
     <div class="deco deco-3">⭐</div>
-    <div class="hero-tag">✦ untuk anak disleksia</div>
+    <div class="hero-tag">✦ Sistem Rekomendasi Kata ✦</div>
     <div class="hero-title">Kata Sulit? <span>Kami Bantu</span><br>Cari yang Lebih Mudah!</div>
-    <div class="hero-desc">Masukkan kata atau kalimat, SimKata akan otomatis mendeteksi kata yang sulit dan memberikan rekomendasi kata pengganti yang lebih mudah dipahami anak usia 7–12 tahun.</div>
+    <div class="hero-desc">Masukkan kata atau kalimat, SimKata akan otomatis mendeteksi kata yang sulit dan memberikan rekomendasi kata pengganti yang lebih mudah dipahami.</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -290,7 +290,6 @@ Jawab HANYA dalam format JSON:
                 return {'kata_asli': kata, 'rekomendasi': [], 'alasan': ''}
 
 # ── Input Section ────────────────────────────────────────
-st.markdown('<div class="sec-tag">✦ Coba Sekarang</div>', unsafe_allow_html=True)
 st.markdown('<div class="sec-title">Masukkan Kata atau Kalimat</div>', unsafe_allow_html=True)
 
 user_input = st.text_area(
@@ -312,7 +311,7 @@ if proses:
         kata_sulit = [k for k in kata_unik if prediksi_kesulitan(k) == 'sulit']
 
         if not kata_sulit:
-            st.markdown('<div class="success-box">🎉 Tidak ada kata sulit yang ditemukan — teks ini sudah ramah untuk anak disleksia!</div>', unsafe_allow_html=True)
+            st.markdown('<div class="success-box">Tidak ada kata sulit yang ditemukan, teks ini sudah ramah untuk anak disleksia!</div>', unsafe_allow_html=True)
         else:
             # Info cards
             st.markdown(f"""
@@ -373,11 +372,11 @@ if proses:
                 time.sleep(0.3)
 
             progress.empty()
-            st.markdown('<div class="success-box">🎉 Selesai! Semua kata sulit sudah direkomendasikan.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="success-box">Selesai! Semua kata sulit sudah direkomendasikan.</div>', unsafe_allow_html=True)
 
 # ── Footer ───────────────────────────────────────────────
 st.markdown("""
 <div class="footer">
-    📚 SimKata · Aisyah Muthmainnah · 1227050012 · Teknik Informatika · UIN Sunan Gunung Djati Bandung · 2026
+    SimKata · UIN Sunan Gunung Djati Bandung · 2026
 </div>
 """, unsafe_allow_html=True)

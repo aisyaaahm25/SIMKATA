@@ -226,9 +226,9 @@ st.markdown("""
     <div class="deco deco-1">📚</div>
     <div class="deco deco-2">✨</div>
     <div class="deco deco-3">⭐</div>
-    <div class="hero-tag">✦ Sistem Rekomendasi Kata ✦</div>
+    <div class="hero-tag">✦ untuk anak disleksia</div>
     <div class="hero-title">Kata Sulit? <span>Kami Bantu</span><br>Cari yang Lebih Mudah!</div>
-    <div class="hero-desc">Masukkan kata atau kalimat, SimKata akan otomatis mendeteksi kata yang sulit dan memberikan rekomendasi kata pengganti yang lebih mudah dipahami.</div>
+    <div class="hero-desc">Masukkan kata atau kalimat, SimKata akan otomatis mendeteksi kata yang sulit dan memberikan rekomendasi kata pengganti yang lebih mudah dipahami anak usia 7–12 tahun.</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -290,6 +290,7 @@ Jawab HANYA dalam format JSON:
                 return {'kata_asli': kata, 'rekomendasi': [], 'alasan': ''}
 
 # ── Input Section ────────────────────────────────────────
+st.markdown('<div class="sec-tag">✦ Coba Sekarang</div>', unsafe_allow_html=True)
 st.markdown('<div class="sec-title">Masukkan Kata atau Kalimat</div>', unsafe_allow_html=True)
 
 user_input = st.text_area(
@@ -311,7 +312,7 @@ if proses:
         kata_sulit = [k for k in kata_unik if prediksi_kesulitan(k) == 'sulit']
 
         if not kata_sulit:
-            st.markdown('<div class="success-box">Tidak ada kata sulit yang ditemukan, teks ini sudah ramah untuk anak disleksia!</div>', unsafe_allow_html=True)
+            st.markdown('<div class="success-box">🎉 Tidak ada kata sulit yang ditemukan — teks ini sudah ramah untuk anak disleksia!</div>', unsafe_allow_html=True)
         else:
             # Info cards
             st.markdown(f"""
@@ -337,8 +338,10 @@ if proses:
             st.markdown('<div class="sec-tag">✦ Hasil Rekomendasi</div>', unsafe_allow_html=True)
             st.markdown('<div class="sec-title">Kata Pengganti yang Lebih Mudah</div>', unsafe_allow_html=True)
 
-            client_ai = OpenAI(api_key=api_key)
-            progress  = st.progress(0, text='Sedang mencari rekomendasi...')
+            client_ai   = OpenAI(api_key=api_key)
+            progress    = st.progress(0, text='Sedang mencari rekomendasi...')
+            kalimat_hasil = user_input
+            kamus_ganti   = {}
 
             for i, kata in enumerate(kata_sulit):
                 hasil  = rekomendasikan_kata(kata, client_ai)
@@ -367,16 +370,36 @@ if proses:
                     if alasan:
                         st.markdown(f'<div class="alasan-box">💡 {alasan}</div>', unsafe_allow_html=True)
 
+                    # Substitusi kata di kalimat pakai rekomendasi_1 otomatis
+                    if rek[0] and rek[0] not in ['[error]', '']:
+                        kamus_ganti[kata] = rek[0]
+                        pola = r'\b' + re.escape(kata) + r'\b'
+                        kalimat_hasil = re.sub(pola, f'**{rek[0]}**', kalimat_hasil, flags=re.IGNORECASE)
+
                 progress.progress((i+1)/len(kata_sulit),
                                   text=f'Memproses {i+1}/{len(kata_sulit)} kata...')
                 time.sleep(0.3)
 
             progress.empty()
-            st.markdown('<div class="success-box">Selesai! Semua kata sulit sudah direkomendasikan.</div>', unsafe_allow_html=True)
+
+            # ── Tampilkan kalimat hasil substitusi ────────────
+            if kamus_ganti:
+                st.markdown('<div class="sec-tag">✦ Hasil Akhir</div>', unsafe_allow_html=True)
+                st.markdown('<div class="sec-title">Kalimat Setelah Disederhanakan</div>', unsafe_allow_html=True)
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown("**📄 Kalimat Asli**")
+                    st.markdown(f'<div class="kartu-info">{user_input}</div>', unsafe_allow_html=True)
+                with col2:
+                    st.markdown("**✅ Kalimat Disederhanakan**")
+                    st.markdown(f'<div class="success-box" style="text-align:left;font-size:14px;font-weight:400">{kalimat_hasil}</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="success-box">🎉 Selesai! Semua kata sulit sudah direkomendasikan.</div>', unsafe_allow_html=True)
 
 # ── Footer ───────────────────────────────────────────────
 st.markdown("""
 <div class="footer">
-    SimKata · UIN Sunan Gunung Djati Bandung · 2026
+    📚 SimKata · Aisyah Muthmainnah · 1227050012 · Teknik Informatika · UIN Sunan Gunung Djati Bandung · 2026
 </div>
 """, unsafe_allow_html=True)

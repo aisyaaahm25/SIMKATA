@@ -5,7 +5,7 @@ import re
 from openai import OpenAI
 
 st.set_page_config(
-    page_title="SimKata — Literasi Anak Disleksia",
+    page_title="SimKata  (Sistem Rekomendasi Kata)",
     page_icon="📚",
     layout="centered"
 )
@@ -226,7 +226,6 @@ st.markdown("""
     <div class="deco deco-1">📚</div>
     <div class="deco deco-2">✨</div>
     <div class="deco deco-3">⭐</div>
-    <div class="hero-tag">✦ untuk anak disleksia</div>
     <div class="hero-title">Kata Sulit? <span>Kami Bantu</span><br>Cari yang Lebih Mudah!</div>
     <div class="hero-desc">Masukkan kata atau kalimat, SimKata akan otomatis mendeteksi kata yang sulit dan memberikan rekomendasi kata pengganti yang lebih mudah dipahami anak usia 7–12 tahun.</div>
 </div>
@@ -238,20 +237,46 @@ KOMBINASI_BINGUNG = ['ng', 'ny']
 POLA_FONEM        = ['str','kl','pr','kr','bl','gr','tr','dr','br','fr','sy','kh','gh','ts']
 HURUF_RAWAN       = set('bdpqnumw')
 
-def prediksi_kesulitan(kata):
+# ── Load model K-Means hasil training Colab ──────────────
+import pickle
+import json
+import numpy as np
+
+@st.cache_resource
+def load_model():
+    with open('model_kmeans.pkl', 'rb') as f:
+        kmeans_model = pickle.load(f)
+    with open('scaler.pkl', 'rb') as f:
+        scaler_model = pickle.load(f)
+    with open('info_klaster.json', 'r') as f:
+        info = json.load(f)
+    return kmeans_model, scaler_model, info
+
+kmeans_model, scaler_model, info_klaster = load_model()
+KLASTER_SULIT = info_klaster['klaster_sulit']
+
+def ekstrak_fitur_mentah(kata):
+    """Ekstrak 5 fitur mentah dari kata (belum dinormalisasi)."""
     kata = kata.lower()
-    f2   = len(kata)
-    f3   = int(any(h in HURUF_BINGUNG for h in kata) or any(k in kata for k in KOMBINASI_BINGUNG))
-    f4   = sum(1 for p in POLA_FONEM if p in kata)
-    f5   = round(sum(1 for h in kata if h in HURUF_RAWAN) / len(kata), 4) if kata else 0
-    skor = 0
-    if f2 >= 7:      skor += 2
-    elif f2 >= 5:    skor += 1
-    if f3 == 1:      skor += 2
-    if f4 >= 1:      skor += 1
-    if f5 >= 0.4:    skor += 2
-    elif f5 >= 0.25: skor += 1
-    return 'sulit' if skor >= 3 else 'mudah'
+    f1 = 0  
+    f2 = len(kata)
+    f3 = int(any(h in HURUF_BINGUNG for h in kata) or any(k in kata for k in KOMBINASI_BINGUNG))
+    f4 = sum(1 for p in POLA_FONEM if p in kata)
+    f5 = round(sum(1 for h in kata if h in HURUF_RAWAN) / len(kata), 4) if kata else 0
+    return [f1, f2, f3, f4, f5]
+
+def prediksi_kesulitan(kata):
+    """Prediksi mudah/sulit menggunakan model K-Means asli dari Colab."""
+    fitur_mentah = ekstrak_fitur_mentah(kata)
+    fitur_array  = np.array(fitur_mentah).reshape(1, -1)
+
+    
+    fitur_norm = scaler_model.transform(fitur_array)
+
+    
+    klaster_prediksi = kmeans_model.predict(fitur_norm)[0]
+
+    return 'sulit' if klaster_prediksi == KLASTER_SULIT else 'mudah'
 
 def rekomendasikan_kata(kata, client, max_retry=3):
     prompt = f"""Kamu adalah ahli linguistik Bahasa Indonesia yang membantu 
@@ -290,7 +315,7 @@ Jawab HANYA dalam format JSON:
                 return {'kata_asli': kata, 'rekomendasi': [], 'alasan': ''}
 
 # ── Input Section ────────────────────────────────────────
-st.markdown('<div class="sec-tag">✦ Coba Sekarang</div>', unsafe_allow_html=True)
+st.markdown('<div class="sec-tag">✦ Coba Sekarang ✦</div>', unsafe_allow_html=True)
 st.markdown('<div class="sec-title">Masukkan Kata atau Kalimat</div>', unsafe_allow_html=True)
 
 user_input = st.text_area(
@@ -312,7 +337,7 @@ if proses:
         kata_sulit = [k for k in kata_unik if prediksi_kesulitan(k) == 'sulit']
 
         if not kata_sulit:
-            st.markdown('<div class="success-box">🎉 Tidak ada kata sulit yang ditemukan — teks ini sudah ramah untuk anak disleksia!</div>', unsafe_allow_html=True)
+            st.markdown('<div class="success-box">🎉 Tidak ada kata sulit yang ditemukan!</div>', unsafe_allow_html=True)
         else:
             # Info cards
             st.markdown(f"""
@@ -335,7 +360,7 @@ if proses:
             </div>
             """, unsafe_allow_html=True)
 
-            st.markdown('<div class="sec-tag">✦ Hasil Rekomendasi</div>', unsafe_allow_html=True)
+            st.markdown('<div class="sec-tag">✦ Hasil Rekomendasi ✦</div>', unsafe_allow_html=True)
             st.markdown('<div class="sec-title">Kata Pengganti yang Lebih Mudah</div>', unsafe_allow_html=True)
 
             client_ai   = OpenAI(api_key=api_key)
@@ -389,10 +414,10 @@ if proses:
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.markdown("**📄 Kalimat Asli**")
+                    st.markdown("**Kalimat Asli**")
                     st.markdown(f'<div class="kartu-info">{user_input}</div>', unsafe_allow_html=True)
                 with col2:
-                    st.markdown("**✅ Kalimat Disederhanakan**")
+                    st.markdown("**Kalimat Disederhanakan**")
                     st.markdown(f'<div class="success-box" style="text-align:left;font-size:14px;font-weight:400">{kalimat_hasil}</div>', unsafe_allow_html=True)
 
             st.markdown('<div class="success-box">🎉 Selesai! Semua kata sulit sudah direkomendasikan.</div>', unsafe_allow_html=True)
@@ -400,6 +425,6 @@ if proses:
 # ── Footer ───────────────────────────────────────────────
 st.markdown("""
 <div class="footer">
-    📚 SimKata · Aisyah Muthmainnah · 1227050012 · Teknik Informatika · UIN Sunan Gunung Djati Bandung · 2026
+    📚 SimKata · UIN Sunan Gunung Djati Bandung · 2026
 </div>
 """, unsafe_allow_html=True)

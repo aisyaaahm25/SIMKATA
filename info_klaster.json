@@ -1,0 +1,13 @@
+{
+  "klaster_mudah": 0,
+  "klaster_sulit": 1,
+  "kolom_fitur": [
+    "f1_frekuensi",
+    "f2_panjang",
+    "f3_huruf_bingung",
+    "f5_fonem_kompleks",
+    "f6_visual"
+  ],
+  "silhouette_score": 0.7594,
+  "davies_bouldin_index": 0.3626
+}

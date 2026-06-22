@@ -5,7 +5,7 @@ import re
 from openai import OpenAI
 
 st.set_page_config(
-    page_title="SimKata  (Sistem Rekomendasi Kata)",
+    page_title="SimKata",
     page_icon="📚",
     layout="centered"
 )
@@ -227,9 +227,26 @@ st.markdown("""
     <div class="deco deco-2">✨</div>
     <div class="deco deco-3">⭐</div>
     <div class="hero-title">Kata Sulit? <span>Kami Bantu</span><br>Cari yang Lebih Mudah!</div>
-    <div class="hero-desc">Masukkan kata atau kalimat, SimKata akan otomatis mendeteksi kata yang sulit dan memberikan rekomendasi kata pengganti yang lebih mudah dipahami anak usia 7–12 tahun.</div>
+    <div class="hero-desc">Masukkan kata atau kalimat, SimKata akan otomatis mendeteksi kata yang sulit dan memberikan rekomendasi kata pengganti yang lebih mudah bagi anak disleksia.</div>
 </div>
 """, unsafe_allow_html=True)
+
+# ── Stopword — tidak perlu direkomendasikan ──────────────
+STOPWORDS_ID = {
+    'di','ke','dari','pada','dalam','untuk','dengan','oleh','tentang','kepada',
+    'bagi','antara','atas','bawah','sekitar','selama','sampai','hingga','menurut',
+    'dan','atau','namun','tetapi','tapi','melainkan','sedangkan','serta','bahwa',
+    'karena','sebab','agar','supaya','maka','jika','kalau','bila','apabila',
+    'ketika','saat','sejak','sudah','telah','akan','sedang','masih','belum',
+    'tidak','tak','bukan','jangan','pernah','selalu','sering','kadang','jarang',
+    'mungkin','pasti','tentu','memang','bahkan','malah','justru','juga','pun',
+    'lagi','lalu','kemudian','akhirnya','yang','ini','itu','tersebut','sama',
+    'seperti','yaitu','yakni','ada','adalah','aku','saya','kamu','dia','kita',
+    'kami','mereka','ia','si','sang','para','tiap','setiap','semua','seluruh',
+    'hal','cara','sudahlah','apalagi','sebagai','setelah','sebelum','sangat',
+    'ya','yah','nah','oh','ah','eh','nih','tuh','deh','dong','lho','kok',
+    'pula','pun','saja','cuma','hanya','juga','selain','meski','meskipun',
+}
 
 # ── Konstanta fitur ──────────────────────────────────────
 HURUF_BINGUNG     = set('bdpq')
@@ -258,7 +275,7 @@ KLASTER_SULIT = info_klaster['klaster_sulit']
 def ekstrak_fitur_mentah(kata):
     """Ekstrak 5 fitur mentah dari kata (belum dinormalisasi)."""
     kata = kata.lower()
-    f1 = 0  
+    f1 = 0  # frekuensi tidak diketahui untuk kata baru, default 0
     f2 = len(kata)
     f3 = int(any(h in HURUF_BINGUNG for h in kata) or any(k in kata for k in KOMBINASI_BINGUNG))
     f4 = sum(1 for p in POLA_FONEM if p in kata)
@@ -270,29 +287,30 @@ def prediksi_kesulitan(kata):
     fitur_mentah = ekstrak_fitur_mentah(kata)
     fitur_array  = np.array(fitur_mentah).reshape(1, -1)
 
-    
+    # Normalisasi pakai scaler yang SAMA dengan saat training
     fitur_norm = scaler_model.transform(fitur_array)
 
-    
+    # Prediksi klaster pakai model K-Means asli
     klaster_prediksi = kmeans_model.predict(fitur_norm)[0]
 
     return 'sulit' if klaster_prediksi == KLASTER_SULIT else 'mudah'
 
 def rekomendasikan_kata(kata, client, max_retry=3):
-    prompt = f"""Kamu adalah ahli linguistik Bahasa Indonesia yang membantu 
-menyederhanakan kosakata untuk anak disleksia usia 7-12 tahun.
+    prompt = f"""Kamu adalah ahli linguistik Bahasa Indonesia.
+Tugasmu: berikan 3 kata pengganti Bahasa Indonesia yang LEBIH SEDERHANA untuk kata berikut.
 
-Berikan 3 kata pengganti yang lebih sederhana untuk kata: "{kata}"
+Kata: "{kata}"
 
-Kriteria:
-- Lebih pendek atau sama panjangnya
-- Lebih familiar dalam kehidupan sehari-hari anak
-- Makna sama atau sangat mirip
-- Mudah diucapkan dan dieja anak usia 7-12 tahun
-- Hindari huruf b/d/p/q berlebihan dan gugus konsonan kompleks
+Aturan WAJIB:
+1. Kata pengganti HARUS kata bahasa Indonesia yang umum dipakai sehari-hari
+2. Makna kata pengganti HARUS sama atau sangat mirip dengan kata asli
+3. Kata pengganti HARUS lebih mudah dibaca anak usia 7-12 tahun
+4. JANGAN gunakan kata asing, nama orang, atau kata yang tidak ada di KBBI
+5. JANGAN ulangi kata aslinya sebagai rekomendasi
+6. Pilih kata yang lebih pendek atau setidaknya sama panjangnya
 
-Jawab HANYA dalam format JSON:
-{{"kata_asli": "{kata}", "rekomendasi": ["kata1", "kata2", "kata3"], "alasan": "alasan singkat"}}"""
+Jawab HANYA dalam format JSON berikut, tanpa penjelasan lain:
+{{"kata_asli": "{kata}", "rekomendasi": ["kata1", "kata2", "kata3"], "alasan": "alasan singkat 1 kalimat"}}"""
 
     for attempt in range(max_retry):
         try:
@@ -333,18 +351,20 @@ if proses:
         st.warning("⚠️ Masukkan kata atau kalimat terlebih dahulu ya!")
     else:
         semua_kata = re.findall(r'\b[a-zA-Z]+\b', user_input)
-        kata_unik  = list(dict.fromkeys([k.lower() for k in semua_kata]))
-        kata_sulit = [k for k in kata_unik if prediksi_kesulitan(k) == 'sulit']
+        # ── Preprocessing: tokenisasi → hapus stopword → hapus kata pendek ──
+        kata_unik      = list(dict.fromkeys([k.lower() for k in semua_kata]))
+        kata_bersih    = [k for k in kata_unik if k not in STOPWORDS_ID and len(k) > 2]
+        kata_sulit     = [k for k in kata_bersih if prediksi_kesulitan(k) == 'sulit']
 
         if not kata_sulit:
-            st.markdown('<div class="success-box">🎉 Tidak ada kata sulit yang ditemukan!</div>', unsafe_allow_html=True)
+            st.markdown('<div class="success-box">🎉 Tidak ada kata sulit yang ditemukan — teks ini sudah ramah untuk anak disleksia!</div>', unsafe_allow_html=True)
         else:
             # Info cards
             st.markdown(f"""
             <div class="info-grid">
                 <div class="info-card info-card-1">
                     <div class="info-icon">📝</div>
-                    <div class="info-val">{len(kata_unik)}</div>
+                    <div class="info-val">{len(kata_bersih)}</div>
                     <div class="info-lbl">Total Kata</div>
                 </div>
                 <div class="info-card info-card-2">
@@ -354,13 +374,13 @@ if proses:
                 </div>
                 <div class="info-card info-card-3">
                     <div class="info-icon">✅</div>
-                    <div class="info-val">{len(kata_unik)-len(kata_sulit)}</div>
+                    <div class="info-val">{len(kata_bersih)-len(kata_sulit)}</div>
                     <div class="info-lbl">Kata Mudah</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            st.markdown('<div class="sec-tag">✦ Hasil Rekomendasi ✦</div>', unsafe_allow_html=True)
+            st.markdown('<div class="sec-tag">✦ Hasil Rekomendasi</div>', unsafe_allow_html=True)
             st.markdown('<div class="sec-title">Kata Pengganti yang Lebih Mudah</div>', unsafe_allow_html=True)
 
             client_ai   = OpenAI(api_key=api_key)
@@ -395,11 +415,11 @@ if proses:
                     if alasan:
                         st.markdown(f'<div class="alasan-box">💡 {alasan}</div>', unsafe_allow_html=True)
 
-                    # Substitusi kata di kalimat pakai rekomendasi_1 otomatis
+                    # Substitusi kata di kalimat pakai rekomendasi_1 otomatis (tanpa bold)
                     if rek[0] and rek[0] not in ['[error]', '']:
                         kamus_ganti[kata] = rek[0]
                         pola = r'\b' + re.escape(kata) + r'\b'
-                        kalimat_hasil = re.sub(pola, f'**{rek[0]}**', kalimat_hasil, flags=re.IGNORECASE)
+                        kalimat_hasil = re.sub(pola, rek[0], kalimat_hasil, flags=re.IGNORECASE)
 
                 progress.progress((i+1)/len(kata_sulit),
                                   text=f'Memproses {i+1}/{len(kata_sulit)} kata...')
@@ -425,6 +445,6 @@ if proses:
 # ── Footer ───────────────────────────────────────────────
 st.markdown("""
 <div class="footer">
-    📚 SimKata · UIN Sunan Gunung Djati Bandung · 2026
+    SimKata · 2026
 </div>
 """, unsafe_allow_html=True)

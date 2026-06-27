@@ -311,9 +311,10 @@ ATURAN WAJIB — jika dilanggar jawaban dianggap salah:
 5. Kata pengganti HARUS lebih familiar bagi anak SD dibanding kata aslinya
 6. Kata pengganti HARUS memiliki makna yang sama atau sangat mirip dengan "{kata}"
 7. Jika tidak ada kata yang lebih sederhana, gunakan sinonim paling umum
+8. URUTKAN rekomendasi dari yang PALING SEDERHANA dan PALING PENDEK di urutan pertama
 
 Jawab HANYA dalam format JSON ini, tanpa teks lain apapun:
-{{"kata_asli": "{kata}", "rekomendasi": ["kata1", "kata2", "kata3"], "alasan": "alasan singkat 1 kalimat"}}"""
+{{"kata_asli": "{kata}", "rekomendasi": ["kata_paling_sederhana", "kata_sederhana_2", "kata_sederhana_3"], "alasan": "alasan singkat 1 kalimat"}}"""
 
     for attempt in range(max_retry):
         try:
@@ -417,6 +418,8 @@ if proses:
                     return True
 
                 rek = [k for k in rek if adalah_valid(k, kata)]
+                # Urutkan dari yang terpendek dulu
+                rek = sorted(rek, key=lambda x: len(x))
 
                 st.markdown(f"""
                 <div class="kata-header">

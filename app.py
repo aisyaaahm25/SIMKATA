@@ -5,7 +5,7 @@ import re
 from openai import OpenAI
 
 st.set_page_config(
-    page_title="SimKata",
+    page_title="SimKata — Literasi Anak Disleksia",
     page_icon="📚",
     layout="centered"
 )
@@ -226,8 +226,9 @@ st.markdown("""
     <div class="deco deco-1">📚</div>
     <div class="deco deco-2">✨</div>
     <div class="deco deco-3">⭐</div>
+    <div class="hero-tag">✦ untuk anak disleksia</div>
     <div class="hero-title">Kata Sulit? <span>Kami Bantu</span><br>Cari yang Lebih Mudah!</div>
-    <div class="hero-desc">Masukkan kata atau kalimat, SimKata akan otomatis mendeteksi kata yang sulit dan memberikan rekomendasi kata pengganti yang lebih mudah bagi anak disleksia.</div>
+    <div class="hero-desc">Masukkan kata atau kalimat, SimKata akan otomatis mendeteksi kata yang sulit dan memberikan rekomendasi kata pengganti yang lebih mudah dipahami anak usia 7–12 tahun.</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -296,20 +297,22 @@ def prediksi_kesulitan(kata):
     return 'sulit' if klaster_prediksi == KLASTER_SULIT else 'mudah'
 
 def rekomendasikan_kata(kata, client, max_retry=3):
-    prompt = f"""Kamu adalah ahli linguistik Bahasa Indonesia.
-Tugasmu: berikan 3 kata pengganti Bahasa Indonesia yang LEBIH SEDERHANA untuk kata berikut.
+    prompt = f"""Kamu adalah ahli linguistik Bahasa Indonesia untuk anak SD usia 7-12 tahun.
 
-Kata: "{kata}"
+Kata yang perlu diganti: "{kata}"
 
-Aturan WAJIB:
-1. Kata pengganti HARUS kata bahasa Indonesia yang umum dipakai sehari-hari
-2. Makna kata pengganti HARUS sama atau sangat mirip dengan kata asli
-3. Kata pengganti HARUS lebih mudah dibaca anak usia 7-12 tahun
-4. JANGAN gunakan kata asing, nama orang, atau kata yang tidak ada di KBBI
-5. JANGAN ulangi kata aslinya sebagai rekomendasi
-6. Pilih kata yang lebih pendek atau setidaknya sama panjangnya
+Tugasmu: berikan tepat 3 kata pengganti dalam Bahasa Indonesia BAKU yang lebih mudah.
 
-Jawab HANYA dalam format JSON berikut, tanpa penjelasan lain:
+ATURAN WAJIB — jika dilanggar jawaban dianggap salah:
+1. HANYA gunakan kata Bahasa Indonesia baku yang ada di KBBI
+2. DILARANG menggunakan kata Bahasa Malaysia (contoh: awak, kamu, buat, dah, tak, boleh, macam)
+3. DILARANG menggunakan nama orang, nama tempat, atau nama brand
+4. DILARANG mengulang kata asli "{kata}" sebagai rekomendasi
+5. Kata pengganti HARUS lebih familiar bagi anak SD dibanding kata aslinya
+6. Kata pengganti HARUS memiliki makna yang sama atau sangat mirip dengan "{kata}"
+7. Jika tidak ada kata yang lebih sederhana, gunakan sinonim paling umum
+
+Jawab HANYA dalam format JSON ini, tanpa teks lain apapun:
 {{"kata_asli": "{kata}", "rekomendasi": ["kata1", "kata2", "kata3"], "alasan": "alasan singkat 1 kalimat"}}"""
 
     for attempt in range(max_retry):
@@ -317,7 +320,7 @@ Jawab HANYA dalam format JSON berikut, tanpa penjelasan lain:
             response = client.chat.completions.create(
                 model='gpt-3.5-turbo',
                 messages=[
-                    {'role': 'system', 'content': 'Kamu ahli linguistik Bahasa Indonesia. Jawab hanya dalam format JSON.'},
+                    {'role': 'system', 'content': 'Kamu adalah ahli linguistik Bahasa Indonesia untuk anak SD. HANYA gunakan kata Bahasa Indonesia baku dari KBBI. DILARANG pakai kata Bahasa Malaysia, nama orang, nama tempat, atau kata asing. Jawab HANYA dalam format JSON yang diminta.'},
                     {'role': 'user',   'content': prompt}
                 ],
                 max_tokens=200,
@@ -333,7 +336,7 @@ Jawab HANYA dalam format JSON berikut, tanpa penjelasan lain:
                 return {'kata_asli': kata, 'rekomendasi': [], 'alasan': ''}
 
 # ── Input Section ────────────────────────────────────────
-st.markdown('<div class="sec-tag">✦ Coba Sekarang ✦</div>', unsafe_allow_html=True)
+st.markdown('<div class="sec-tag">✦ Coba Sekarang</div>', unsafe_allow_html=True)
 st.markdown('<div class="sec-title">Masukkan Kata atau Kalimat</div>', unsafe_allow_html=True)
 
 user_input = st.text_area(
@@ -393,6 +396,28 @@ if proses:
                 rek    = hasil.get('rekomendasi', [])
                 alasan = hasil.get('alasan', '')
 
+                # ── Validasi hasil rekomendasi ────────────────
+                KATA_MALAYSIA = {
+                    'awak','kamu','buat','dah','tak','boleh','macam','dengan',
+                    'hendak','ingin','mahu','mau','sudah','punya','saja','sahaja',
+                    'kerana','atau','dan','untuk','bila','kalau','juga','sangat',
+                    'amat','lebih','kurang','baik','buruk','besar','kecil'
+                }
+                def adalah_valid(k, kata_asli):
+                    if not k or k in ['[error]', '[parse error]', '']:
+                        return False
+                    if k.lower() == kata_asli.lower():  # jangan ulang kata asli
+                        return False
+                    if k.lower() in KATA_MALAYSIA:       # jangan kata Malaysia
+                        return False
+                    if k[0].isupper():                   # jangan nama orang/tempat
+                        return False
+                    if len(k) < 2:                       # jangan terlalu pendek
+                        return False
+                    return True
+
+                rek = [k for k in rek if adalah_valid(k, kata)]
+
                 st.markdown(f"""
                 <div class="kata-header">
                     <span style="font-size:20px">🔴</span>
@@ -434,10 +459,10 @@ if proses:
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.markdown("**Kalimat Asli**")
+                    st.markdown("**📄 Kalimat Asli**")
                     st.markdown(f'<div class="kartu-info">{user_input}</div>', unsafe_allow_html=True)
                 with col2:
-                    st.markdown("**Kalimat Disederhanakan**")
+                    st.markdown("**✅ Kalimat Disederhanakan**")
                     st.markdown(f'<div class="success-box" style="text-align:left;font-size:14px;font-weight:400">{kalimat_hasil}</div>', unsafe_allow_html=True)
 
             st.markdown('<div class="success-box">🎉 Selesai! Semua kata sulit sudah direkomendasikan.</div>', unsafe_allow_html=True)
@@ -445,6 +470,6 @@ if proses:
 # ── Footer ───────────────────────────────────────────────
 st.markdown("""
 <div class="footer">
-    SimKata · 2026
+    📚 SimKata · Aisyah Muthmainnah · 1227050012 · Teknik Informatika · UIN Sunan Gunung Djati Bandung · 2026
 </div>
 """, unsafe_allow_html=True)

@@ -273,28 +273,21 @@ def load_model():
 kmeans_model, scaler_model, info_klaster = load_model()
 KLASTER_SULIT = info_klaster['klaster_sulit']
 
-def ekstrak_fitur_mentah(kata):
-    """Ekstrak 5 fitur mentah dari kata (belum dinormalisasi)."""
+def prediksi_kesulitan(kata):
+    """Prediksi mudah/sulit menggunakan model K-Means asli dari Colab."""
     kata = kata.lower()
-    f1 = 0  # frekuensi tidak diketahui untuk kata baru, default 0
+    f1 = 0
     f2 = len(kata)
     f3 = int(any(h in HURUF_BINGUNG for h in kata) or any(k in kata for k in KOMBINASI_BINGUNG))
     f4 = sum(1 for p in POLA_FONEM if p in kata)
     f5 = round(sum(1 for h in kata if h in HURUF_RAWAN) / len(kata), 4) if kata else 0
-    return [f1, f2, f3, f4, f5]
 
-def prediksi_kesulitan(kata):
-    """Prediksi mudah/sulit menggunakan model K-Means asli dari Colab."""
-    fitur_mentah = ekstrak_fitur_mentah(kata)
-    fitur_array  = np.array(fitur_mentah).reshape(1, -1)
-
-    # Normalisasi pakai scaler yang SAMA dengan saat training
-    fitur_norm = scaler_model.transform(fitur_array)
-
-    # Prediksi klaster pakai model K-Means asli
-    klaster_prediksi = kmeans_model.predict(fitur_norm)[0]
-
-    return 'sulit' if klaster_prediksi == KLASTER_SULIT else 'mudah'
+    # Pakai DataFrame agar nama kolom match dengan saat training
+    import pandas as pd
+    fitur_df   = pd.DataFrame([[f1, f2, f3, f4, f5]], columns=info_klaster['kolom_fitur'])
+    fitur_norm = scaler_model.transform(fitur_df)
+    klaster    = kmeans_model.predict(fitur_norm)[0]
+    return 'sulit' if klaster == KLASTER_SULIT else 'mudah'
 
 def rekomendasikan_kata(kata, client, max_retry=3):
     prompt = f"""Kamu adalah ahli linguistik Bahasa Indonesia untuk anak SD usia 7-12 tahun.

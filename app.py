@@ -255,39 +255,45 @@ KOMBINASI_BINGUNG = ['ng', 'ny']
 POLA_FONEM        = ['str','kl','pr','kr','bl','gr','tr','dr','br','fr','sy','kh','gh','ts']
 HURUF_RAWAN       = set('bdpqnumw')
 
-# ── Load model K-Means hasil training Colab ──────────────
-import pickle
-import json
-import numpy as np
-
-@st.cache_resource
-def load_model():
-    with open('model_kmeans.pkl', 'rb') as f:
-        kmeans_model = pickle.load(f)
-    with open('scaler.pkl', 'rb') as f:
-        scaler_model = pickle.load(f)
-    with open('info_klaster.json', 'r') as f:
-        info = json.load(f)
-    return kmeans_model, scaler_model, info
-
-kmeans_model, scaler_model, info_klaster = load_model()
-KLASTER_SULIT = info_klaster['klaster_sulit']
+# ── Daftar kata yang sudah sederhana (whitelist) ─────────
+KATA_SEDERHANA = {
+    'makan','minum','tidur','duduk','jalan','lari','main','baca','tulis',
+    'lihat','dengar','pegang','ambil','beri','kasih','bawa','taruh','pakai',
+    'buka','tutup','naik','turun','masuk','keluar','pergi','pulang','datang',
+    'tanya','jawab','cerita','bilang','bicara','panggil','ajak','bantu',
+    'senang','sedih','marah','takut','malu','berani','baik','jahat','cantik',
+    'besar','kecil','panjang','pendek','tinggi','rendah','banyak','sedikit',
+    'cepat','lambat','dekat','jauh','atas','bawah','dalam','luar','depan',
+    'belakang','kanan','kiri','sini','sana','situ','siang','malam','pagi',
+    'sore','hari','bulan','tahun','waktu','lama','baru','lagi','sudah',
+    'pisang','apel','jeruk','mangga','nasi','roti','susu','air','bunga',
+    'pohon','rumah','jalan','sekolah','buku','pensil','meja','kursi','pintu',
+    'bunda','ayah','ibu','bapak','kakak','adik','teman','guru','anak',
+    'diberi','diberikan','dibuat','dibawa','dibaca','dibeli','dibuka',
+    'dimakan','diminum','dipakai','dipanggil','ditulis','diajak','dibantu',
+}
 
 def prediksi_kesulitan(kata):
-    """Prediksi mudah/sulit menggunakan model K-Means asli dari Colab."""
+    """Prediksi mudah/sulit berdasarkan fitur linguistik."""
     kata = kata.lower()
-    f1 = 0
+
+    # Kata yang sudah jelas sederhana → mudah
+    if kata in KATA_SEDERHANA:
+        return 'mudah'
+
     f2 = len(kata)
-    f3 = int(any(h in HURUF_BINGUNG for h in kata) or any(k in kata for k in KOMBINASI_BINGUNG))
+    f3 = int(any(h in HURUF_BINGUNG for h in kata) or
+             any(k in kata for k in KOMBINASI_BINGUNG))
     f4 = sum(1 for p in POLA_FONEM if p in kata)
     f5 = round(sum(1 for h in kata if h in HURUF_RAWAN) / len(kata), 4) if kata else 0
 
-    # Pakai DataFrame agar nama kolom match dengan saat training
-    import pandas as pd
-    fitur_df   = pd.DataFrame([[f1, f2, f3, f4, f5]], columns=info_klaster['kolom_fitur'])
-    fitur_norm = scaler_model.transform(fitur_df)
-    klaster    = kmeans_model.predict(fitur_norm)[0]
-    return 'sulit' if klaster == KLASTER_SULIT else 'mudah'
+    skor = 0
+    if f2 >= 8:       skor += 3
+    elif f2 >= 6:     skor += 1
+    if f4 >= 1:       skor += 2
+    if f5 >= 0.5:     skor += 1
+
+    return 'sulit' if skor >= 3 else 'mudah'
 
 def rekomendasikan_kata(kata, client, max_retry=3):
     prompt = f"""Kamu adalah ahli linguistik Bahasa Indonesia untuk anak SD usia 7-12 tahun.

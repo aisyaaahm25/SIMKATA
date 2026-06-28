@@ -8,6 +8,7 @@
     "f5_fonem_kompleks",
     "f6_visual"
   ],
+  "sklearn_version": "1.9.0",
   "silhouette_score": 0.7594,
   "davies_bouldin_index": 0.3626
 }

@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import time
 import re
+import pandas as pd
 from openai import OpenAI
 
 st.set_page_config(
@@ -246,7 +247,9 @@ STOPWORDS_ID = {
     'kami','mereka','ia','si','sang','para','tiap','setiap','semua','seluruh',
     'hal','cara','sudahlah','apalagi','sebagai','setelah','sebelum','sangat',
     'ya','yah','nah','oh','ah','eh','nih','tuh','deh','dong','lho','kok',
-    'pula','pun','saja','cuma','hanya','juga','selain','meski','meskipun',
+    'apa','siapa','mana','kapan','dimana','kemana','mengapa','kenapa',
+    'bagaimana','berapa','apakah','siapakah','manakah','kapankah',
+    'dimanakah','mengapakah','bagaimanakah','berapakah',
 }
 
 # ── Konstanta fitur ──────────────────────────────────────
@@ -255,32 +258,27 @@ KOMBINASI_BINGUNG = ['ng', 'ny']
 POLA_FONEM        = ['str','kl','pr','kr','bl','gr','tr','dr','br','fr','sy','kh','gh','ts']
 HURUF_RAWAN       = set('bdpqnumw')
 
-# ── Daftar kata yang sudah sederhana (whitelist) ─────────
-KATA_SEDERHANA = {
-    'makan','minum','tidur','duduk','jalan','lari','main','baca','tulis',
-    'lihat','dengar','pegang','ambil','beri','kasih','bawa','taruh','pakai',
-    'buka','tutup','naik','turun','masuk','keluar','pergi','pulang','datang',
-    'tanya','jawab','cerita','bilang','bicara','panggil','ajak','bantu',
-    'senang','sedih','marah','takut','malu','berani','baik','jahat','cantik',
-    'besar','kecil','panjang','pendek','tinggi','rendah','banyak','sedikit',
-    'cepat','lambat','dekat','jauh','atas','bawah','dalam','luar','depan',
-    'belakang','kanan','kiri','sini','sana','situ','siang','malam','pagi',
-    'sore','hari','bulan','tahun','waktu','lama','baru','lagi','sudah',
-    'pisang','apel','jeruk','mangga','nasi','roti','susu','air','bunga',
-    'pohon','rumah','jalan','sekolah','buku','pensil','meja','kursi','pintu',
-    'bunda','ayah','ibu','bapak','kakak','adik','teman','guru','anak',
-    'diberi','diberikan','dibuat','dibawa','dibaca','dibeli','dibuka',
-    'dimakan','diminum','dipakai','dipanggil','ditulis','diajak','dibantu',
-}
+# ── Load lookup table dari hasil clustering ───────────────
+@st.cache_data
+def load_lookup_table():
+    df = pd.read_csv('hasil_clustering_kosakata.csv')
+    return dict(zip(df['kata'], df['label']))
+
+LOOKUP_LABEL = load_lookup_table()
 
 def prediksi_kesulitan(kata):
-    """Prediksi mudah/sulit berdasarkan fitur linguistik."""
+    """
+    Prediksi mudah/sulit:
+    1. Cek di lookup table hasil clustering K-Means (akurat)
+    2. Kalau tidak ada di dataset → pakai rule-based (fallback)
+    """
     kata = kata.lower()
 
-    # Kata yang sudah jelas sederhana → mudah
-    if kata in KATA_SEDERHANA:
-        return 'mudah'
+    # Prioritas 1: pakai hasil clustering K-Means asli
+    if kata in LOOKUP_LABEL:
+        return LOOKUP_LABEL[kata]
 
+    # Prioritas 2: fallback rule-based untuk kata di luar dataset
     f2 = len(kata)
     f3 = int(any(h in HURUF_BINGUNG for h in kata) or
              any(k in kata for k in KOMBINASI_BINGUNG))
@@ -288,10 +286,11 @@ def prediksi_kesulitan(kata):
     f5 = round(sum(1 for h in kata if h in HURUF_RAWAN) / len(kata), 4) if kata else 0
 
     skor = 0
-    if f2 >= 8:       skor += 3
-    elif f2 >= 6:     skor += 1
-    if f4 >= 1:       skor += 2
-    if f5 >= 0.5:     skor += 1
+    if f2 >= 9:    skor += 3
+    elif f2 >= 7:  skor += 2
+    elif f2 >= 5:  skor += 1
+    if f4 >= 1:    skor += 2
+    if f5 >= 0.5:  skor += 1
 
     return 'sulit' if skor >= 3 else 'mudah'
 
@@ -309,8 +308,9 @@ ATURAN WAJIB — jika dilanggar jawaban dianggap salah:
 4. DILARANG mengulang kata asli "{kata}" sebagai rekomendasi
 5. Kata pengganti HARUS lebih familiar bagi anak SD dibanding kata aslinya
 6. Kata pengganti HARUS memiliki makna yang sama atau sangat mirip dengan "{kata}"
-7. Jika tidak ada kata yang lebih sederhana, gunakan sinonim paling umum
-8. URUTKAN rekomendasi dari yang PALING SEDERHANA dan PALING PENDEK di urutan pertama
+7. Jika kata asli sudah merupakan kata paling sederhana dan tidak ada sinonim yang lebih mudah, isi rekomendasi dengan kata yang BERMAKNA SAMA meskipun panjangnya sama
+8. DILARANG memberikan rekomendasi yang lebih panjang dari kata asli kecuali tidak ada pilihan lain
+9. URUTKAN rekomendasi dari yang PALING SEDERHANA dan PALING PENDEK di urutan pertama
 
 Jawab HANYA dalam format JSON ini, tanpa teks lain apapun:
 {{"kata_asli": "{kata}", "rekomendasi": ["kata_paling_sederhana", "kata_sederhana_2", "kata_sederhana_3"], "alasan": "alasan singkat 1 kalimat"}}"""
